@@ -4,7 +4,8 @@ var require = {
   baseUrl: 'src',
   scalejs: {
     extensions: [
-      '<%=ext_name%>'
+      'browser',
+      'trace'
     ]
   },
   paths: {
