@@ -5,8 +5,8 @@ require ['scalejs!core', 'browser'], (core) ->
 
     browser = core.browser
 
-    stack_info = switch core.browser.name
-        when 'chrome' then () ->
+    stack_info = switch
+        when browser.chrome then () ->
             trace = new Error().stack.split('\n')[4]
             line = trace.split(':')
             line = line[line.length - 2]
@@ -21,7 +21,7 @@ require ['scalejs!core', 'browser'], (core) ->
             file: file
             line: line
 
-        when 'safari' then () ->
+        when browser.safari then () ->
             trace = new Error().stack.split('\n')[3]
             line = trace.split(':')
             line = line[line.length - 2]
@@ -33,8 +33,8 @@ require ['scalejs!core', 'browser'], (core) ->
             file: file
             line: line
 
-        when 'firefox' then () -> undefined
-        when 'msie' then () -> undefined
+        when browser.firefox then () -> undefined
+        when browser.msie then () -> undefined
         else () ->
             func: 'unknown'
             file: 'unsupported'
