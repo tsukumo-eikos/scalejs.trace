@@ -5,6 +5,16 @@ require.config({
         jasmine: '../lib/jasmine/jasmine',
         'trace': '../build/trace'
     },
+    config: {
+        'trace': {
+            level: 9,
+            lengths: {
+                file: 10,
+                func: 20,
+                line: 2
+            }
+        }
+    },
     shim: {
         jasmine: {
             exports: 'window.jasmineRequire'

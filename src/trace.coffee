@@ -1,9 +1,13 @@
 
 # global require
 
-require ['scalejs!core', 'browser'], (core) ->
+define ['module', 'scalejs!core', 'browser'], (module, core) ->
 
     browser = core.browser
+
+    _format = ( string = '', data ) ->
+        return string.replace /{([\da-z_]*)}/gi, ( match, name ) ->
+            if data[name]? then data[name] else match
 
     stack_info = switch
         when browser.chrome then () ->
@@ -11,11 +15,17 @@ require ['scalejs!core', 'browser'], (core) ->
             line = trace.split(':')
             line = line[line.length - 2]
             left_paren = trace.indexOf ' ('
-            func = if left_paren < 1 then 'global' else
-                trace.substring trace.indexOf('at ') + 3, left_paren
-            func = func.substring func.lastIndexOf(' ') + 1
-            file = trace.substring trace.lastIndexOf('/') + 1
-            file = file.substring 0, file.indexOf ':'
+            if left_paren > -1
+                func = trace.substring trace.indexOf('at ') + 3, left_paren
+                func = func.substring func.lastIndexOf(' ') + 1
+            else
+                func = 'global'
+            slash = trace.indexOf '/'
+            if slash > -1
+                file = trace.substring trace.lastIndexOf('/') + 1
+                file = file.substring 0, file.indexOf ':'
+            else
+                file = 'console'
 
             func: func
             file: file
@@ -39,8 +49,6 @@ require ['scalejs!core', 'browser'], (core) ->
             func: 'unknown'
             file: 'unsupported'
             line: -1
-
-
 
     LEVELS = [
         {
@@ -131,6 +139,16 @@ require ['scalejs!core', 'browser'], (core) ->
 
                 return objects
 
+    config = module.config()
+    self.options.level = config.level ? self.options.level
+    self.options.color = config.color ? self.options.color
+    if config.lengths
+        self.options.lengths.file = config.lengths.file ?
+        self.options.lengths.file
+        self.options.lengths.func = config.lengths.func ?
+        self.options.lengths.func
+        self.options.lengths.line = config.lengths.line ?
+        self.options.lengths.line
 
     internal_trace_log = Function.prototype.call.bind console['log'], console
 
