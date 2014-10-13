@@ -2,12 +2,6 @@
 /*jshint ignore:start*/
 var require = {
   baseUrl: 'src',
-  scalejs: {
-    extensions: [
-      'browser',
-      'trace'
-    ]
-  },
   paths: {
     almond: '../lib/almond/almond',
     requirejs: '../lib/requirejs/require',

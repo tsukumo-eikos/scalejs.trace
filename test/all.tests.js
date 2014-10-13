@@ -7,11 +7,19 @@ require.config({
     },
     config: {
         'trace': {
-            level: 9,
-            lengths: {
-                file: 10,
-                func: 20,
-                line: 2
+            levels: {
+                custom: {
+                    color: '#0000FF',
+                    level: 3
+                }
+            },
+            options: {
+                level: 9,
+                lengths: {
+                    file: 10,
+                    func: 20,
+                    line: 2
+                }
             }
         }
     },

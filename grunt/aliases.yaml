@@ -19,6 +19,7 @@ release:
     - 'copy'
 
 test:
+    - 'build'
     - 'coffeelint:test'
     - 'newer:coffee:test'
     - 'if-missing:curl-dir:jasmine'
