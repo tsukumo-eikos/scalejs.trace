@@ -281,6 +281,9 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
           icon += ';padding-bottom:1px';
         }
         core.log[name] = console[name] = self[name] = Function.prototype.bind.call(console.log, console, prefix, icon, color);
+        if (name === 'text') {
+          core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(console.log, console, prefix, icon, color);
+        }
       } else {
         core.log[name] = console[name] = self[name] = function() {
           return void 0;

@@ -275,6 +275,11 @@ define ['module', 'scalejs!core', 'browser'], (module, core) ->
                 core.log[name] = console[name] = self[name] =
                     Function.prototype.bind.call console.log, console,
                         prefix, icon, color
+
+                if name is 'text'
+                    core.log['log'] = console['log'] = self['log'] =
+                        Function.prototype.bind.call console.log, console,
+                            prefix, icon, color
             else
                 core.log[name] = console[name] = self[name] = ( ) ->
                     undefined
