@@ -1,5 +1,5 @@
 define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
-  var LEVELS, browser, config, ensure_length, internal_trace_log, level, lower, rgb, self, settings, stack_info, trace_log, uriColor, _format;
+  var LEVELS, browser, color, config, ensure_length, icon, internal_trace_log, level, longest_level, lower, name, prefix, rgb, self, settings, stack_info, trace_log, uriColor, _format, _ref, _ref1, _ref2;
   browser = core.browser;
   _format = function(string, data) {
     if (string == null) {
@@ -132,7 +132,7 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
       icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAMRJREFUWAntldEOwyAIRdtl/y378k0ebmJsV7wI8UUTiw/AObFGj8MepaZ8nVPs9s8ZM3BIuyUi4G6JSDgtkQEflsiEmxIsvD++AIzEy8Fk4Qrpxwi4zRE08MAjBLSHnPVz1wxyT1Fr2+Hq82o7rFhvgb0DeweW78DMRRRybSzfgS3wnviRYY+RTEjMln7QoNSFPqfMRC0iU6u5gkLEUhdME9QhMrWCoj6yEgwUuX/hkMmUMOGZEsPwDAkaHinhhkdImPAfT2RuwuaH2RgAAAAASUVORK5CYII='
     },
     'WARN': {
-      color: '#F1C40F',
+      color: '#F39C12',
       level: 2,
       icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAkpJREFUWAnFl7tOW1EQRYEIhEiACCqaNIgyjfkECn6Agg+gSGMqnlIe8j8kUur06UEUfAAFZRQhikTKg4chFJHSRGGv2CNtru+xHefey5aGmXNmz56ZA0YwNDQ4nqp0T7YvI64UE+p2JfvTNmLuKsOGOkXz8JtVdX+oRmc5A5zrjlzpYNPYOuu3yu7OhmwajQ8VY3Eu/RXYMJrhl9vmd6W9Attf2ADHigPEMQScR5Eo0m9bE5qtmjhxDICHWyjYyLc/1fmBdSDmLoYo/BV2TJwmz2RZcBcD4KkpBGx/KQvx74rHc5S5Ixc8aqj9b+xKIUTxnEFNdtA2YpDitrIDfM1ufyON6bZOUz4GIwbk4MQ9rzApS2IkmWkl6nKzxnmrmAZgtOXuxOTgBKhFYyAweVMW2/xSPGdKHyxHHIADN+rQQCsX3V6grooZq3qn+JudvyZiOHADaKzHoV/PxEweW/xWvJAppknkvSE0uNREHq0pWQdGOm5aF0zs27/X+STD/WJnj7mGS03gn16BSa9kMT1+MZTM141DnAU1roEm2j3xXAwv5LM+KKh1rRe9hPK2X+pV1CVPrQ/Q8xWY0AuOuojXlGNDjDgFNFzzZYrIbzEmdPJKiqz7pnGJU0DDNa91jt+md2qYzIkfdU59SijsdwA00HLtVwg4mIjJnLTmhJy4328BpWi5dscrMJET+FyPyYoCWmh6D3r+Rd72ZfyTkf1z/oe6P2aChswnqzJuDKv5J9kT2X3gc7ef8soGmlen17Kfsqqen15vZPO3plMi6cExu04AAAAASUVORK5CYII='
     },
@@ -183,6 +183,7 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
     }
     return str.substring(0, size);
   };
+  longest_level = 6;
   self = {
     levels: LEVELS,
     options: {
@@ -204,54 +205,89 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
           }
         }
         msg = msg.join(' ');
-        objects.unshift(ensure_length(level.name, 6) + ' @' + ensure_length(file, self.options.lengths.file) + ' [' + ensure_length(func, self.options.lengths.func) + '](' + ensure_length(line, self.options.lengths.line) + ') ' + msg);
+        objects.unshift(ensure_length(level.name, longest_level) + ' @' + ensure_length(file, self.options.lengths.file) + ' [' + ensure_length(func, self.options.lengths.func) + '](' + ensure_length(line, self.options.lengths.line) + ') ' + msg);
         return objects;
       }
     }
   };
   config = module.config();
   core.object.merge(self, config);
-  internal_trace_log = Function.prototype.call.bind(console['log'], console);
-  trace_log = function(level, msg) {
-    var bg, icon, info, output;
-    if ((self.options.level < level.level && !level.enabled) || level.disabled) {
-      return;
-    }
-    msg = Array.prototype.slice.call(msg);
-    info = stack_info();
-    output = self.options.filter(level, info.file, info.func, info.line, msg);
-    output[0] = '%c  %c ' + output[0];
-    if (self.options.color) {
-      output.splice(1, 0, 'color:' + level.color + ';');
-      icon = level.coloricon;
-    } else {
-      output.splice(1, 0, '');
-      icon = level.icon;
-    }
-    bg = 'background:url(' + icon + ');background-size:13px';
-    if (browser.firefox) {
-      bg += ';padding-bottom:1px';
-    }
-    output.splice(1, 0, bg);
-    return internal_trace_log.apply(console, output);
-  };
-  for (level in LEVELS) {
-    settings = LEVELS[level];
+  _ref = self.levels;
+  for (level in _ref) {
+    settings = _ref[level];
     if (settings.icon && settings.color && !browser.firefox) {
       settings.coloricon = uriColor(settings.icon, settings.color);
     } else {
       settings.coloricon = settings.icon;
     }
-    settings.name = level.toUpperCase();
-    lower = level.toLowerCase();
-    core.log[lower] = console[lower] = self[lower] = (function(settings) {
-      return function() {
-        return trace_log(settings, arguments);
-      };
-    })(settings);
+    if (level.length + 1 > longest_level) {
+      longest_level = level.length + 1;
+    }
   }
-  console['log'] = self.text;
-  core.log.log = self.text;
+  if (!config.noConflict) {
+    internal_trace_log = Function.prototype.call.bind(console['log'], console);
+    trace_log = function(level, msg) {
+      var bg, icon, info, output;
+      if ((self.options.level < level.level && !level.enabled) || level.disabled) {
+        return;
+      }
+      msg = Array.prototype.slice.call(msg);
+      info = stack_info();
+      output = self.options.filter(level, info.file, info.func, info.line, msg);
+      output[0] = '%c  %c ' + output[0];
+      if (self.options.color) {
+        output.splice(1, 0, 'color:' + level.color + ';');
+        icon = level.coloricon;
+      } else {
+        output.splice(1, 0, '');
+        icon = level.icon;
+      }
+      bg = 'background:url(' + icon + ');background-size:13px';
+      if (browser.firefox) {
+        bg += ';padding-bottom:1px';
+      }
+      output.splice(1, 0, bg);
+      return internal_trace_log.apply(console, output);
+    };
+    _ref1 = self.levels;
+    for (level in _ref1) {
+      settings = _ref1[level];
+      settings.name = level.toUpperCase();
+      lower = level.toLowerCase();
+      core.log[lower] = console[lower] = self[lower] = (function(settings) {
+        return function() {
+          return trace_log(settings, arguments);
+        };
+      })(settings);
+    }
+    console['log'] = self.text;
+    core.log.log = self.text;
+  } else {
+    _ref2 = self.levels;
+    for (level in _ref2) {
+      settings = _ref2[level];
+      name = level.toLowerCase();
+      if (settings.enabled || settings.level < self.options.level) {
+        prefix = '%c  %c ' + ensure_length(level.toUpperCase(), longest_level);
+        if (self.options.color) {
+          icon = settings.coloricon;
+          color = 'color:' + settings.color;
+        } else {
+          icon = settings.icon;
+          color = '';
+        }
+        icon = 'background:url(' + icon + ');background-size:13px';
+        if (browser.firefox) {
+          icon += ';padding-bottom:1px';
+        }
+        core.log[name] = console[name] = self[name] = Function.prototype.bind.call(console.log, console, prefix, icon, color);
+      } else {
+        core.log[name] = console[name] = self[name] = function() {
+          return void 0;
+        };
+      }
+    }
+  }
   return core.registerExtension({
     trace: self
   });
