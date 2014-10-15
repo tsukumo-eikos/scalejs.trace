@@ -1,5 +1,5 @@
 define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
-  var LEVELS, browser, color, config, ensure_length, icon, internal_trace_log, level, longest_level, lower, name, prefix, rgb, self, settings, stack_info, trace_log, uriColor, _format, _ref, _ref1, _ref2;
+  var LEVELS, browser, build, config, ensure_length, expected_load_count, internal_trace_log, level, load_count, loaded, longest_level, rgb, self, settings, stack_info, uriColor, _format, _ref;
   browser = core.browser;
   _format = function(string, data) {
     if (string == null) {
@@ -32,32 +32,35 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
       };
     }
   };
-  uriColor = function(data, hex) {
-    var canvas, ctx, d, img, imgd, to, x;
-    img = document.createElement('img');
-    img.src = data;
-    img.style.visibility = 'hidden';
-    document.body.appendChild(img);
-    canvas = document.createElement('canvas');
-    canvas.width = img.offsetWidth;
-    canvas.height = img.offsetHeight;
-    ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
-    img.parentNode.removeChild(img);
-    imgd = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    d = imgd.data;
-    to = rgb(hex);
-    x = 0;
-    while (x < d.length) {
-      if (d[x] === 0 && d[x + 1] === 0 && d[x + 2] === 0 && d[x + 3] !== 0) {
-        d[x] = to.r;
-        d[x + 1] = to.g;
-        d[x + 2] = to.b;
+  uriColor = function(data, hex, fulfill, reject) {
+    var img;
+    img = new Image();
+    img.onload = function() {
+      var canvas, ctx, d, imgd, to, x;
+      canvas = document.createElement('canvas');
+      if (!canvas.getContext || !canvas.getContext('2d' || img.height < 1 || img.width < 1)) {
+        reject();
       }
-      x += 4;
-    }
-    ctx.putImageData(imgd, 0, 0);
-    return canvas.toDataURL();
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      imgd = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      d = imgd.data;
+      to = rgb(hex);
+      x = 0;
+      while (x < d.length) {
+        if (d[x] === 0 && d[x + 1] === 0 && d[x + 2] === 0 && d[x + 3] !== 0) {
+          d[x] = to.r;
+          d[x + 1] = to.g;
+          d[x + 2] = to.b;
+        }
+        x += 4;
+      }
+      ctx.putImageData(imgd, 0, 0);
+      return fulfill(canvas.toDataURL());
+    };
+    return img.src = data;
   };
   stack_info = (function() {
     switch (false) {
@@ -208,89 +211,113 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
         objects.unshift(ensure_length(level.name, longest_level) + ' @' + ensure_length(file, self.options.lengths.file) + ' [' + ensure_length(func, self.options.lengths.func) + '](' + ensure_length(line, self.options.lengths.line) + ') ' + msg);
         return objects;
       }
+    },
+    loaded: function() {
+      return console.system('trace logging enabled');
     }
   };
   config = module.config();
   core.object.merge(self, config);
+  expected_load_count = 0;
   _ref = self.levels;
   for (level in _ref) {
     settings = _ref[level];
-    if (settings.icon && settings.color && !browser.firefox) {
-      settings.coloricon = uriColor(settings.icon, settings.color);
-    } else {
-      settings.coloricon = settings.icon;
+    if (settings.icon && settings.color) {
+      expected_load_count++;
+      uriColor(settings.icon, settings.color, (function(settings) {
+        return function(icon) {
+          settings.coloricon = icon;
+          return loaded();
+        };
+      })(settings), (function(settings) {
+        return function() {
+          settings.coloricon = settings.icon;
+          return loaded();
+        };
+      })(settings));
     }
     if (level.length + 1 > longest_level) {
       longest_level = level.length + 1;
     }
   }
+  load_count = 0;
+  loaded = function() {
+    load_count++;
+    if (load_count === expected_load_count) {
+      return build();
+    }
+  };
   internal_trace_log = Function.prototype.call.bind(console['log'], console);
-  if (!config.noConflict) {
-    trace_log = function(level, msg) {
-      var bg, icon, info, output;
-      if ((self.options.level < level.level && !level.enabled) || level.disabled) {
-        return;
-      }
-      msg = Array.prototype.slice.call(msg);
-      info = stack_info();
-      output = self.options.filter(level, info.file, info.func, info.line, msg);
-      output[0] = '%c  %c ' + output[0];
-      if (self.options.color) {
-        output.splice(1, 0, 'color:' + level.color + ';');
-        icon = level.coloricon;
-      } else {
-        output.splice(1, 0, '');
-        icon = level.icon;
-      }
-      bg = 'background:url(' + icon + ');background-size:13px';
-      if (browser.firefox) {
-        bg += ';padding-bottom:1px';
-      }
-      output.splice(1, 0, bg);
-      return internal_trace_log.apply(console, output);
-    };
-    _ref1 = self.levels;
-    for (level in _ref1) {
-      settings = _ref1[level];
-      settings.name = level.toUpperCase();
-      lower = level.toLowerCase();
-      core.log[lower] = console[lower] = self[lower] = (function(settings) {
-        return function() {
-          return trace_log(settings, arguments);
-        };
-      })(settings);
-    }
-    console['log'] = self.text;
-    core.log.log = self.text;
-  } else {
-    _ref2 = self.levels;
-    for (level in _ref2) {
-      settings = _ref2[level];
-      name = level.toLowerCase();
-      if (settings.enabled || settings.level < self.options.level) {
-        prefix = '%c  %c ' + ensure_length(level.toUpperCase(), longest_level);
+  build = function() {
+    var color, icon, lower, name, prefix, trace_log, _ref1, _ref2;
+    if (!config.noConflict) {
+      trace_log = function(level, msg) {
+        var bg, icon, info, output;
+        if ((self.options.level < level.level && !level.enabled) || level.disabled) {
+          return;
+        }
+        msg = Array.prototype.slice.call(msg);
+        info = stack_info();
+        output = self.options.filter(level, info.file, info.func, info.line, msg);
+        output[0] = '%c  %c ' + output[0];
         if (self.options.color) {
-          icon = settings.coloricon;
-          color = 'color:' + settings.color;
+          output.splice(1, 0, 'color:' + level.color + ';');
+          icon = level.coloricon;
         } else {
-          icon = settings.icon;
-          color = '';
+          output.splice(1, 0, '');
+          icon = level.icon;
         }
-        icon = 'background:url(' + icon + ');background-size:13px';
+        bg = 'background:url(' + icon + ');background-size:13px';
         if (browser.firefox) {
-          icon += ';padding-bottom:1px';
+          bg += ';padding-bottom:1px';
         }
-        core.log[name] = console[name] = self[name] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
-        if (name === 'text') {
-          core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
+        output.splice(1, 0, bg);
+        return internal_trace_log.apply(console, output);
+      };
+      _ref1 = self.levels;
+      for (level in _ref1) {
+        settings = _ref1[level];
+        settings.name = level.toUpperCase();
+        lower = level.toLowerCase();
+        core.log[lower] = console[lower] = self[lower] = (function(settings) {
+          return function() {
+            return trace_log(settings, arguments);
+          };
+        })(settings);
+      }
+      console['log'] = self.text;
+      core.log.log = self.text;
+    } else {
+      _ref2 = self.levels;
+      for (level in _ref2) {
+        settings = _ref2[level];
+        name = level.toLowerCase();
+        if (settings.enabled || settings.level < self.options.level) {
+          prefix = '%c  %c ' + ensure_length(level.toUpperCase(), longest_level);
+          if (self.options.color) {
+            icon = settings.coloricon;
+            color = 'color:' + settings.color;
+          } else {
+            icon = settings.icon;
+            color = '';
+          }
+          icon = 'background:url(' + icon + ');background-size:13px';
+          if (browser.firefox) {
+            icon += ';padding-bottom:1px';
+          }
+          core.log[name] = console[name] = self[name] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
+          if (name === 'text') {
+            core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
+          }
+        } else {
+          core.log[name] = console[name] = self[name] = function() {
+            return void 0;
+          };
         }
-      } else {
-        core.log[name] = console[name] = self[name] = function() {
-          return void 0;
-        };
       }
     }
-  }
+    return self.loaded();
+  };
   return core.registerExtension({
     trace: self
   });
