@@ -26,36 +26,42 @@ define ['module', 'scalejs!core', 'browser'], (module, core) ->
                 b: parseInt color.substring(4, 6), 16
             }
 
-    uriColor = ( data, hex ) ->
-        img = document.createElement 'img'
+    uriColor = ( data, hex, fulfill, reject) ->
+        img = new Image()
+
+        img.onload = ( ) ->
+            canvas = document.createElement 'canvas'
+
+            if not canvas.getContext or not canvas.getContext '2d' or
+            img.height < 1 or img.width < 1
+                reject()
+
+            canvas.width = img.width
+            canvas.height = img.height
+
+            ctx = canvas.getContext '2d'
+            ctx.drawImage img, 0, 0
+
+            imgd = ctx.getImageData 0, 0, canvas.width, canvas.height
+            d = imgd.data
+
+            to = rgb hex
+            x = 0
+            while x < d.length
+                if  d[x] is 0 and d[x + 1] is 0 and
+                d[x + 2] is 0 and d[x + 3] isnt 0
+                    d[x] = to.r
+                    d[x + 1] = to.g
+                    d[x + 2] = to.b
+
+                x += 4
+
+            ctx.putImageData imgd, 0, 0
+
+            fulfill canvas.toDataURL()
+
         img.src = data
-        img.style.visibility = 'hidden'
-        document.body.appendChild img
 
-        canvas = document.createElement 'canvas'
-        canvas.width = img.offsetWidth
-        canvas.height = img.offsetHeight
-
-        ctx = canvas.getContext '2d'
-        ctx.drawImage img, 0, 0
-        img.parentNode.removeChild img
-
-        imgd = ctx.getImageData 0, 0, canvas.width, canvas.height
-        d = imgd.data
-
-        to = rgb hex
-        x = 0
-        while x < d.length
-            if d[x] is 0 and d[x + 1] is 0 and d[x + 2] is 0 and d[x + 3] isnt 0
-                d[x] = to.r
-                d[x + 1] = to.g
-                d[x + 2] = to.b
-
-            x += 4
-
-        ctx.putImageData imgd, 0, 0
-
-        canvas.toDataURL()
 
     stack_info = switch
         when browser.chrome then () ->
@@ -193,95 +199,113 @@ define ['module', 'scalejs!core', 'browser'], (module, core) ->
                     ') ' + msg
 
                 return objects
+        loaded: ( ) ->
+            console.system 'trace logging enabled'
+
 
     config = module.config()
     core.object.merge self, config
 
+    expected_load_count = 0
+
     for level, settings of self.levels
-        if settings.icon and settings.color and not browser.firefox
-            settings.coloricon = uriColor settings.icon, settings.color
-        else
-            settings.coloricon = settings.icon
+        if settings.icon and settings.color
+            expected_load_count++
+            uriColor settings.icon, settings.color, (( settings ) -> ( icon ) ->
+                settings.coloricon = icon
+                loaded()
+            )(settings), ( (settings) -> ( ) ->
+                settings.coloricon = settings.icon
+                loaded()
+            )(settings)
 
         if level.length + 1 > longest_level
             longest_level = level.length + 1
+
+    load_count = 0
+    loaded = () ->
+        load_count++
+        if load_count is expected_load_count
+            build()
 
     # Store console function for later use
     internal_trace_log =
         Function.prototype.call.bind console['log'], console
 
-    if not config.noConflict
+    build = ( ) ->
+        if not config.noConflict
 
-        trace_log = (level, msg) ->
-            return if (self.options.level < level.level and
-            not level.enabled) or level.disabled
-            # Parse arugments structure
-            msg = Array.prototype.slice.call msg
-            # Collect info from the stack
-            info = stack_info()
-            # Filter the information
-            output = self.options.filter level,
-            info.file, info.func, info.line, msg
-            # Setup for styles in the console
-            output[0] = '%c  %c ' + output[0]
-            if self.options.color
-                output.splice 1, 0, 'color:' + level.color + ';'
-                icon = level.coloricon
-            else
-                output.splice 1, 0, ''
-                icon = level.icon
-            bg = 'background:url(' + icon +
-                ');background-size:13px'
-            if browser.firefox
-                bg += ';padding-bottom:1px'
-            output.splice 1, 0, bg
-            # Finally log the parsed info
-            internal_trace_log.apply console, output
-
-        # Setup log levels
-        for level, settings of self.levels
-            settings.name = level.toUpperCase()
-            lower = level.toLowerCase()
-
-            core.log[lower] = console[lower] = self[lower] =
-                (( settings ) -> () ->
-                    trace_log settings, arguments
-                )( settings )
-
-        # Override console
-        console['log'] = self.text
-        # Override core logging
-        core.log.log = self.text
-
-    else # NO CONFLICT
-
-        for level, settings of self.levels
-            name = level.toLowerCase()
-
-            if settings.enabled or settings.level < self.options.level
-                prefix = '%c  %c ' +
-                    ensure_length level.toUpperCase(), longest_level
+            trace_log = (level, msg) ->
+                return if (self.options.level < level.level and
+                not level.enabled) or level.disabled
+                # Parse arugments structure
+                msg = Array.prototype.slice.call msg
+                # Collect info from the stack
+                info = stack_info()
+                # Filter the information
+                output = self.options.filter level,
+                info.file, info.func, info.line, msg
+                # Setup for styles in the console
+                output[0] = '%c  %c ' + output[0]
                 if self.options.color
-                    icon = settings.coloricon
-                    color = 'color:' + settings.color
+                    output.splice 1, 0, 'color:' + level.color + ';'
+                    icon = level.coloricon
                 else
-                    icon = settings.icon
-                    color = ''
-                icon = 'background:url(' + icon + ');background-size:13px'
+                    output.splice 1, 0, ''
+                    icon = level.icon
+                bg = 'background:url(' + icon +
+                    ');background-size:13px'
                 if browser.firefox
-                    icon += ';padding-bottom:1px'
+                    bg += ';padding-bottom:1px'
+                output.splice 1, 0, bg
+                # Finally log the parsed info
+                internal_trace_log.apply console, output
 
-                core.log[name] = console[name] = self[name] =
-                    Function.prototype.bind.call internal_trace_log,
-                        console, prefix, icon, color
+            # Setup log levels
+            for level, settings of self.levels
+                settings.name = level.toUpperCase()
+                lower = level.toLowerCase()
 
-                if name is 'text'
-                    core.log['log'] = console['log'] = self['log'] =
+                core.log[lower] = console[lower] = self[lower] =
+                    (( settings ) -> () ->
+                        trace_log settings, arguments
+                    )( settings )
+
+            # Override console
+            console['log'] = self.text
+            # Override core logging
+            core.log.log = self.text
+
+        else # NO CONFLICT
+
+            for level, settings of self.levels
+                name = level.toLowerCase()
+
+                if settings.enabled or settings.level < self.options.level
+                    prefix = '%c  %c ' +
+                        ensure_length level.toUpperCase(), longest_level
+                    if self.options.color
+                        icon = settings.coloricon
+                        color = 'color:' + settings.color
+                    else
+                        icon = settings.icon
+                        color = ''
+                    icon = 'background:url(' + icon + ');background-size:13px'
+                    if browser.firefox
+                        icon += ';padding-bottom:1px'
+
+                    core.log[name] = console[name] = self[name] =
                         Function.prototype.bind.call internal_trace_log,
                             console, prefix, icon, color
-            else
-                core.log[name] = console[name] = self[name] = ( ) ->
-                    undefined
+
+                    if name is 'text'
+                        core.log['log'] = console['log'] = self['log'] =
+                            Function.prototype.bind.call internal_trace_log,
+                                console, prefix, icon, color
+                else
+                    core.log[name] = console[name] = self[name] = ( ) ->
+                        undefined
+        self.loaded()
 
     # Register self as trace extension
     core.registerExtension
