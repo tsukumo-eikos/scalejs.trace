@@ -224,8 +224,8 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
       longest_level = level.length + 1;
     }
   }
+  internal_trace_log = Function.prototype.call.bind(console['log'], console);
   if (!config.noConflict) {
-    internal_trace_log = Function.prototype.call.bind(console['log'], console);
     trace_log = function(level, msg) {
       var bg, icon, info, output;
       if ((self.options.level < level.level && !level.enabled) || level.disabled) {
@@ -280,9 +280,9 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
         if (browser.firefox) {
           icon += ';padding-bottom:1px';
         }
-        core.log[name] = console[name] = self[name] = Function.prototype.bind.call(console.log, console, prefix, icon, color);
+        core.log[name] = console[name] = self[name] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
         if (name === 'text') {
-          core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(console.log, console, prefix, icon, color);
+          core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
         }
       } else {
         core.log[name] = console[name] = self[name] = function() {

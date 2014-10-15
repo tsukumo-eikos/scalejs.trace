@@ -206,12 +206,11 @@ define ['module', 'scalejs!core', 'browser'], (module, core) ->
         if level.length + 1 > longest_level
             longest_level = level.length + 1
 
+    # Store console function for later use
+    internal_trace_log =
+        Function.prototype.call.bind console['log'], console
 
     if not config.noConflict
-
-        # Store console function for later use
-        internal_trace_log =
-            Function.prototype.call.bind console['log'], console
 
         trace_log = (level, msg) ->
             return if (self.options.level < level.level and
@@ -273,13 +272,13 @@ define ['module', 'scalejs!core', 'browser'], (module, core) ->
                     icon += ';padding-bottom:1px'
 
                 core.log[name] = console[name] = self[name] =
-                    Function.prototype.bind.call console.log, console,
-                        prefix, icon, color
+                    Function.prototype.bind.call internal_trace_log,
+                        console, prefix, icon, color
 
                 if name is 'text'
                     core.log['log'] = console['log'] = self['log'] =
-                        Function.prototype.bind.call console.log, console,
-                            prefix, icon, color
+                        Function.prototype.bind.call internal_trace_log,
+                            console, prefix, icon, color
             else
                 core.log[name] = console[name] = self[name] = ( ) ->
                     undefined
