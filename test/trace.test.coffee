@@ -1,6 +1,11 @@
 
 define ['scalejs!core', 'scalejs!application'], ({log, trace}) ->
 
+    if trace.isLoaded
+        trace.info('starting')
+    else
+        trace.loaded = () ->
+            console.info('starting late')
     # For deeper testing, pass to the console
 
     class ConsoleTesting

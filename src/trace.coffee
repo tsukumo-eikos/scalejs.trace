@@ -199,7 +199,9 @@ define ['module', 'scalejs!core', 'browser'], (module, core) ->
                     ') ' + msg
 
                 return objects
+        isLoaded: false
         loaded: ( ) ->
+            self.isLoaded = true
             console.system 'trace logging enabled'
 
 

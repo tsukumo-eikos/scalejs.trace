@@ -212,7 +212,9 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
         return objects;
       }
     },
+    isLoaded: false,
     loaded: function() {
+      self.isLoaded = true;
       return console.system('trace logging enabled');
     }
   };
