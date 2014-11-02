@@ -15,11 +15,7 @@ require.config({
             },
             options: {
                 level: 9,
-                lengths: {
-                    file: 10,
-                    func: 20,
-                    line: 2
-                }
+                format: '{FUNC}( ) - {FILE}(-10):{LINE}(2)'
             }
         }
     },
