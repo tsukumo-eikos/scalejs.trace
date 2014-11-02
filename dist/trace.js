@@ -1,67 +1,47 @@
 define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
-  var LEVELS, browser, build, config, ensure_length, expected_load_count, internal_trace_log, level, load_count, loaded, longest_level, rgb, self, settings, stack_info, uriColor, _format, _ref;
-  browser = core.browser;
+  var LEVELS, browser, build, config, internal_trace_log, level, longest_level, self, settings, stack_info, uriColor, _ensure_length, _format, _ref;
+  _ensure_length = function(str, size) {
+    var abs;
+    size = Number(size);
+    if (!isFinite(size) || size === 0) {
+      return str;
+    }
+    abs = Math.abs(size);
+    if (str.length < abs) {
+      if (size > 0) {
+        return str + new Array(abs - str.length + 1).join(' ');
+      } else {
+        return new Array(abs - str.length + 1).join(' ') + str;
+      }
+    }
+    return str.substring(0, size);
+  };
   _format = function(string, data) {
     if (string == null) {
       string = '';
     }
-    return string.replace(/{([\da-z_]*)}/gi, function(match, name) {
-      if (data[name] != null) {
-        return data[name];
-      } else {
-        return match;
+    return string.replace(/{([\da-z_]+)}(?:\((-?[\d]+| )\))?/gi, function(match, name, space) {
+      var word;
+      word = data[name] != null ? data[name] : match;
+      if (space) {
+        word = _ensure_length(word, space);
       }
+      return word;
     });
   };
-  rgb = function(color) {
-    if (color.indexOf('rgb') === 0) {
-      color = color.match(/([0-9]+)(?=[,])/g);
-      return {
-        r: color[0],
-        g: color[1],
-        b: color[2]
-      };
-    } else {
-      if (color.indexOf('#') === 0) {
-        color = color.substring(1);
-      }
-      return {
-        r: parseInt(color.substring(0, 2), 16),
-        g: parseInt(color.substring(2, 4), 16),
-        b: parseInt(color.substring(4, 6), 16)
-      };
+  uriColor = function(data, hex) {
+    var match;
+    match = data.match(/^data:.+\/(.+);(.+),(.*)$/);
+    if (match[1] === 'svg+xml' && match[2] === 'base64') {
+      data = atob(match[3]);
+      data = data.replace(/path /, function() {
+        return 'path fill="' + hex + '" ';
+      });
+      data = 'data:image/svg+xml;base64,' + btoa(data);
     }
+    return data;
   };
-  uriColor = function(data, hex, fulfill, reject) {
-    var img;
-    img = new Image();
-    img.onload = function() {
-      var canvas, ctx, d, imgd, to, x;
-      canvas = document.createElement('canvas');
-      if (!canvas.getContext || !canvas.getContext('2d' || img.height < 1 || img.width < 1)) {
-        reject();
-      }
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      imgd = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      d = imgd.data;
-      to = rgb(hex);
-      x = 0;
-      while (x < d.length) {
-        if (d[x] === 0 && d[x + 1] === 0 && d[x + 2] === 0 && d[x + 3] !== 0) {
-          d[x] = to.r;
-          d[x + 1] = to.g;
-          d[x + 2] = to.b;
-        }
-        x += 4;
-      }
-      ctx.putImageData(imgd, 0, 0);
-      return fulfill(canvas.toDataURL());
-    };
-    return img.src = data;
-  };
+  browser = core.browser;
   stack_info = (function() {
     switch (false) {
       case !browser.chrome:
@@ -127,76 +107,66 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
     'SEVERE': {
       color: '#C0392B',
       level: 0,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAldJREFUWAm9l7svREEYxZd4hIhIbEGv0KxaKdGQiNofoNCIVkGvUqgUEtGtgkKBxCMKCY2/QC90JOKVeJzf7s41d+a+9rrrJCcz880353z77dx1lUp1dGm4FTfEabFHLBpooo0HXngG6Nfs2+KL5ofiojgi5gVn0UALTdsDzwBuAXYi86zdcT+lq2OvawW0NUqgHe9BOcmTV21fiEcNaqi1lvZOiBSRBd1K+rATR7VYFq/FL9Gutog5mmjjgVcihrW7IB6LdCZvAZxFAy00E7Gm3SWx7GTxXc2JVfFJTCuGHHI5E7poWqONB14ethRBnO9lX5wVO0Qb3JUpcVO8E00xzImxR44NNNBCE23O4OVhVREjaMYHxdbFipddKnGBxxs0l9lOG9OCs2gYPTPi5YGWmYSo8Ub7PNOD3snfAHvkkBulYWJ4eagoYhKSRi7Wnjgj0l7InFjWC4uXh05F3sQkc3fvXvnQjSet8cArEleKJh0uYg+PAO3BrD65dNatWIY83ALOW+HoaCZ69CqZ3/oiWh2lgTYeAdwO8CfzLNgtfoI2HgHcAtjgcWoVMmkPyL3ZxzGq3W4MTbRDiOrAozIOQlnFLNBEO4SoAkiohrKKWTSl2SfPZ9FtY941Wmh6iOsAB7a97PwBtNBsCkPKzvICktYVNNDKhXmdSjNI20fjT9jR6TSTuH3O/hm8Yp2IcSZxcc64r2e5i+H3+7SJIsgN/ebndrYO8o8Ez3LcJzZxcshtCXj5XBE/RWNoRmLsRb2gKlwsJiXHq7gxZ07sX1GW226DzHPhB+oBhTC4qzBQAAAAAElFTkSuQmCC'
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMzAgMEwxNiA0IDIgMHMtLjE0IDEuNjE2IDAgNGwxNCA0LjM3OEwzMCA0Yy4xNC0yLjM4NCAwLTQgMC00ek0yLjI1NiA2LjA5N0MzLjAwNiAxMy45MyA1LjgwMyAyNy4xMDQgMTYgMzJjMTAuMTk3LTQuODk2IDEyLjk5NS0xOC4wNyAxMy43NDQtMjUuOTAzTDE2IDExLjI2NCAyLjI1NiA2LjA5N3oiLz48L3N2Zz4='
     },
     'ERROR': {
       color: '#E74C3C',
       level: 1,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAMRJREFUWAntldEOwyAIRdtl/y378k0ebmJsV7wI8UUTiw/AObFGj8MepaZ8nVPs9s8ZM3BIuyUi4G6JSDgtkQEflsiEmxIsvD++AIzEy8Fk4Qrpxwi4zRE08MAjBLSHnPVz1wxyT1Fr2+Hq82o7rFhvgb0DeweW78DMRRRybSzfgS3wnviRYY+RTEjMln7QoNSFPqfMRC0iU6u5gkLEUhdME9QhMrWCoj6yEgwUuX/hkMmUMOGZEsPwDAkaHinhhkdImPAfT2RuwuaH2RgAAAAASUVORK5CYII='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMzIgMjNMMjMgMEg5TDAgOXYxNGw5IDloMTRsOS05VjlsLTktOXptLTE0IDNoLTR2LTRoNHY0em0wLThoLTRWNmg0djEyeiIvPjwvc3ZnPg=='
     },
     'WARN': {
       color: '#F39C12',
       level: 2,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAkpJREFUWAnFl7tOW1EQRYEIhEiACCqaNIgyjfkECn6Agg+gSGMqnlIe8j8kUur06UEUfAAFZRQhikTKg4chFJHSRGGv2CNtru+xHefey5aGmXNmz56ZA0YwNDQ4nqp0T7YvI64UE+p2JfvTNmLuKsOGOkXz8JtVdX+oRmc5A5zrjlzpYNPYOuu3yu7OhmwajQ8VY3Eu/RXYMJrhl9vmd6W9Attf2ADHigPEMQScR5Eo0m9bE5qtmjhxDICHWyjYyLc/1fmBdSDmLoYo/BV2TJwmz2RZcBcD4KkpBGx/KQvx74rHc5S5Ixc8aqj9b+xKIUTxnEFNdtA2YpDitrIDfM1ufyON6bZOUz4GIwbk4MQ9rzApS2IkmWkl6nKzxnmrmAZgtOXuxOTgBKhFYyAweVMW2/xSPGdKHyxHHIADN+rQQCsX3V6grooZq3qn+JudvyZiOHADaKzHoV/PxEweW/xWvJAppknkvSE0uNREHq0pWQdGOm5aF0zs27/X+STD/WJnj7mGS03gn16BSa9kMT1+MZTM141DnAU1roEm2j3xXAwv5LM+KKh1rRe9hPK2X+pV1CVPrQ/Q8xWY0AuOuojXlGNDjDgFNFzzZYrIbzEmdPJKiqz7pnGJU0DDNa91jt+md2qYzIkfdU59SijsdwA00HLtVwg4mIjJnLTmhJy4328BpWi5dscrMJET+FyPyYoCWmh6D3r+Rd72ZfyTkf1z/oe6P2aChswnqzJuDKv5J9kT2X3gc7ef8soGmlen17Kfsqqen15vZPO3plMi6cExu04AAAAASUVORK5CYII='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMTYgNC45Nkw1LjIyNCAyOGgyMS41NTJMMTYgNC45NnpNMTYgMGMuNjkgMCAxLjM4LjQ2NSAxLjkwMyAxLjM5NWwxMy42NiAyNy4yMjJjMS4wNDYgMS44Ni4xNTUgMy4zODMtMS45OCAzLjM4M0gyLjQyQy4yODMgMzItLjYwNyAzMC40NzguNDQgMjguNjE3TDE0LjEgMS4zOTVDMTQuNjIuNDY1IDE1LjMxIDAgMTYgMHptLTIgMjRjMC0xLjEwNS44OTUtMiAyLTJzMiAuODk1IDIgMi0uODk1IDItMiAyLTItLjg5NS0yLTJ6bTItMTJjMS4xMDUgMCAyIC44OTUgMiAybC0uNjI1IDZoLTIuNzVMMTQgMTRjMC0xLjEwNS44OTUtMiAyLTJ6Ii8+PC9zdmc+'
     },
     'INFO': {
       color: '#3498DB',
       level: 3,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAYlJREFUWAnFlzFOwzAYhVsQQqyVOiAhZgQLp+AGvQoH4BZMiGsw9gBsdO3UCYkRITLA+9L8Veo61H8T7Ce92In9v/eUpok9HqVjqqk34nXTWh+FhfjW0PrvDAyBS4k8iT9OUkPtwThT5YP4JXrNbT61aKDlwpVmc0tNqG+LFppJuNWsD7GvaViPJtp/4lyjKzEsHuocbTyiONbVuZhqFoqk1uGB1w7udSVVhHkhPLV4beFCZ5+iR2RLwFmLF54bPKrnMe97B6jHs8ZExz7/dW9wm4/n5EiHmXgq5gaeMwLc5XZu+dXeS12w25K7XY5l/i2etFLt61ITA+G9qBDzFg4ZYMQz4IX9TN666HwCVNGRPBcrAvCBKIUVAV5LueNNgJeCAWrvQ1/FYW57OFPbzauYlcpzqJbhHE+8axT/HJMidUGyjtx9TPkJdhYkyKUuybqt1yP7Aswbr6hO0UWpJSq6LLcQRTcmFqLo1sxC0P7r5rTr294OYP2pOrYlp7U+4wuR/R+0ftL2/BfozNBvModPTAAAAABJRU5ErkJggg=='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMTYgMEM3LjE2MyAwIDAgNy4xNjMgMCAxNnM3LjE2MyAxNiAxNiAxNiAxNi03LjE2MyAxNi0xNlMyNC44MzcgMCAxNiAwem0tMiA2aDR2NGgtNFY2em02IDIwaC04di0yaDJ2LThoLTJ2LTJoNnYxMGgydjJ6Ii8+PC9zdmc+'
     },
     'SYSTEM': {
       color: '#9B59B6',
       level: 4,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAoNJREFUWAnll7FLW1EYxbUgiLjq2qBLQR3tZpd2dLIOrgWhUKfOgls3oX+A/g1O/QtacKiDg5ZOlaeUQtvUSUoLEnt+L98JNy/RvKgvGXrg+N177ne+774kN96MjPzvGC35Akwqb06cFxeCjMGxeBRk/Em8EO8FNN4UKXhVkuTiwXsnrMr9TSw2PpW2nuiMz5K58/FSo2+MybErutC+xr9ifqg4JQKvM0ZjDY1cPF6nFjVL4YGy9kTMv8VX4suYf1WcFg038Jw1ctDx4KUGc2pSuyfeKAPDubgoTojfRbQVMQUaTPFcEzQ8eKlBLTRq34hnWm2Il+LTyOQpMH8WiycGHaYgh1z0jVigFjWpTY+uYLeZiPG1aBxogPbCQhLRYRHkouM1qImWifTqAMfGBauO9GrDuGZ1serGrk8verawphGLWUtpDrYV0LcKuqcu6Hka8bBOjRSZJuj0zMHRWI7xh4gOD2PwxUIf0Z5awfM+5u6Zn83HIXrRnloMTiz0Ee3xQ9jqh3TPXP+rv7wsj5wV8UfofMF0Ax7YDXhY+1lYpAc6PXNwbq8rEimVBXqX+3qsbAtRuMq3gLcxRcdbwCk4jYylNDPRZwt6mak9rm2Pe7R0NvAxVp84K2IWcaagl5na4xr2uId75p+Bd7Hq3TnZu/TTWC8T7XENe9zDPXOdr8W6yGkYBOlFzxy8BX/Et83pQP7Si55tmNAsE3kFhvLvWH3zy0JDcSgXEjYAbrqScd1K4c9LqnFtQ7/VlYxCfCaGeillE1yhd0Q/4UCv5WzAuO6HyZkS1kVvkDHn3XPHW/8wUa0WJjXiDnchunCvSC4evD0x2jOjmUCxOXFevNcfp/8A6uxI68d+lSQAAAAASUVORK5CYII='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMTUgMkM2LjcxNiAyIDAgOC43MTYgMCAxN3M2LjcxNiAxNSAxNSAxNWM4LjI4NCAwIDE1LTYuNzE2IDE1LTE1UzIzLjI4NCAyIDE1IDJ6bTguNDg3IDIwYy4yNjgtMS4yNjQuNDM3LTIuNjA2LjQ5Mi00aDMuOTgyYy0uMTA0IDEuMzgtLjQyNiAyLjcyMi0uOTYgNGgtMy41MTV6TTYuNTEzIDEyYy0uMjY4IDEuMjY0LS40MzcgMi42MDYtLjQ5MiA0SDIuMDRjLjEwNC0xLjM4LjQyNi0yLjcyMi45Ni00aDMuNTE1em0xNC45MjYgMGMuMyAxLjI4LjQ4IDIuNjIuNTQgNEgxNnYtNGg1LjQ0ek0xNiAxMFY0LjE0NmMuNDU2LjEzMy45MDguMzU1IDEuMzUuNjY4LjgzMi41ODYgMS42MjYgMS40ODggMi4zIDIuNjEuNDY0Ljc3NC44NjYgMS42MzcgMS4yMDIgMi41NzdIMTZ6bS01LjY1LTIuNTc4Yy42NzQtMS4xMiAxLjQ2OC0yLjAyMyAyLjMtMi42MS40NDItLjMxMi44OTQtLjUzNCAxLjM1LS42NjdWMTBIOS4xNDhjLjMzNi0uOTQuNzM4LTEuODA0IDEuMjAzLTIuNTh6TTE0IDEydjRIOC4wMmMuMDYtMS4zOC4yNC0yLjcyLjU0LTRIMTR6TTIuOTk3IDIyYy0uNTMzLTEuMjc4LS44NTQtMi42Mi0uOTYtNGgzLjk4NGMuMDU2IDEuMzk0LjIyNSAyLjczNi40OTMgNEgyLjk5N3ptNS4wMjQtNEgxNHY0SDguNTZjLS4zLTEuMjgtLjQ4LTIuNjItLjU0LTR6TTE0IDI0djUuODU0Yy0uNDU2LS4xMzMtLjkwOC0uMzU1LTEuMzUtLjY2OC0uODMyLS41ODYtMS42MjYtMS40ODgtMi4zLTIuNjEtLjQ2NC0uNzc0LS44NjYtMS42MzctMS4yMDItMi41NzdIMTR6bTUuNjUgMi41NzhjLS42NzQgMS4xMi0xLjQ2OCAyLjAyMy0yLjMgMi42MS0uNDQyLjMxLS44OTQuNTM0LTEuMzUuNjY3VjI0aDQuODUyYy0uMzM2Ljk0LS43MzggMS44MDMtMS4yMDMgMi41OHpNMTYgMjJ2LTRoNS45OGMtLjA2IDEuMzgtLjI0IDIuNzItLjU0IDRIMTZ6bTcuOTgtNmMtLjA1NS0xLjM5NC0uMjI0LTIuNzM2LS40OTItNGgzLjUxNmMuNTMzIDEuMjc4Ljg1NSAyLjYyLjk2IDRIMjMuOTh6bTEuOTc4LTZIMjIuOTZjLS41OC0xLjgzNi0xLjM4Ni0zLjQ0Ny0yLjM1My00LjczMiAxLjMzLjYzNiAyLjUzMyAxLjQ4OCAzLjU4NSAyLjU0LjY3LjY3IDEuMjYgMS40MDQgMS43NjYgMi4xOTJ6TTUuODA4IDcuODA4YzEuMDUyLTEuMDUyIDIuMjU2LTEuOTA0IDMuNTg1LTIuNTRDOC40MjYgNi41NTMgNy42MjMgOC4xNjQgNy4wNCAxMEg0LjA0Yy41MDQtLjc4OCAxLjA5NC0xLjUyIDEuNzY2LTIuMTkyek00LjA0MiAyNEg3LjA0Yy41ODIgMS44MzYgMS4zODYgMy40NDcgMi4zNTMgNC43MzItMS4zMy0uNjM2LTIuNTMzLTEuNDg4LTMuNTg1LTIuNTQtLjY3LS42Ny0xLjI2LTEuNDA0LTEuNzY2LTIuMTkyem0yMC4xNSAyLjE5MmMtMS4wNTIgMS4wNTItMi4yNTYgMS45MDQtMy41ODUgMi41NC45NjctMS4yODUgMS43Ny0yLjg5NiAyLjM1NC00LjczMmgyLjk5OGMtLjUwNC43ODgtMS4wOTQgMS41Mi0xLjc2NiAyLjE5MnoiLz48L3N2Zz4='
     },
     'DEBUG': {
       color: '#27AE60',
       level: 5,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAjhJREFUWAnFl7tO3EAUhhdQSmokJBKogIqGB5iCNmnS0gMPxAsgJCh4BArTkYoK0UTpcilTRaLg8n/mHK89O+M1xia/dObMuf6HGe96mUym2JhuW3fLin6RHEu+m7DHR6wLZri+qepJsjWn+pPifyyX/FiIkdMGOKiDc7LIIvx4UZNgOqU+yHkhWUkFzUeMHHJzCBYoOX2AwpweNLOhDmTtNjxpgxxycwgWKOoJmzI4lt91Z7S/sZz42FM2uTnAQQ2cDfySRSD3HNxbPEUY+8hNwe8frhJ+BRhXL67sc/DX4l1ULjdYsXNVDyH+woJBmsFiubN4F0VuXI8drLgw3VD+HMTHOYY9c/8+yU9tHiJ56wBxPzg6Y1WZ3GffIailR2+cqLIvudfRoxfWVcXxeaO+mh70SoInM4d9BdriubrYTw96JdFGsJes6Ofs1Ys3W99jj+volcSCvCT/N7RdwbsMxQCcQkqqF8YAk9ArxbHQdgK3AxB7i2yvtgEuvXoA3bkXx8RQyLpkyC8i7wtHFv5rJf4YDWnDkYT/WoGs/gZ7K3mqF1wl6s9AMN+59FJNPmv/aLHXKGqorfeiNwjlGi0E+WsPIj/mV8k/SdfTIJeaGPSmhw/SiPv9bza8U2Nb22vJvCHIITcFelMPVwNbsgjM+/LhynYkR5JTCf9cIOzxEatfq8wZwAEXnBUOtcN5VnnG28ABF5zVtAFDKMp13MU5AjR+XB8xhKJcx12cwzkrtrVqN/6m4noGLwc6AMU1QccAAAAASUVORK5CYII='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMzIgMTh2LTJoLTYuMDRjLS4xODMtMi4yNy0uOTkzLTQuMzQ1LTIuMjQtNi4wMDhoNS4wNmwyLjE5LTguNzU4TDI5LjAzLjc1bC0xLjgxIDcuMjRoLTUuNDZsLS4wODQtLjA2M2MuMjEtLjYxLjMyNC0xLjI2My4zMjQtMS45NDRDMjIgMi42NzggMTkuMzE0IDAgMTYgMHMtNiAyLjY3OC02IDUuOTgzYzAgLjY4LjExNCAxLjMzNC4zMjQgMS45NDQtLjAyOC4wMi0uMDU2LjA0My0uMDg0LjA2NEg0Ljc4TDIuOTcuNzVsLTEuOTQuNDg0IDIuMTkgOC43NThoNS4wNkM3LjAzNCAxMS42NTUgNi4yMjQgMTMuNzI4IDYuMDQgMTZIMHYyaDYuMDQzYy4xMiAxLjQyNy40ODUgMi43NzUgMS4wNSAzLjk5MkgzLjIyTDEuMDMgMzAuNzVsMS45NC40ODQgMS44MS03LjI0M2gzLjUxMmMxLjgzNCAyLjQ0IDQuNjA2IDMuOTkzIDcuNzA4IDMuOTkzczUuODc0LTEuNTU0IDcuNzA4LTMuOTkyaDMuNTFsMS44MTIgNy4yNDQgMS45NC0uNDg1LTIuMTktOC43NThoLTMuODc0Yy41NjctMS4yMTcuOTMyLTIuNTY1IDEuMDUtMy45OTJIMzJ6Ii8+PC9zdmc+'
     },
     'NOTE': {
       color: '#95A5A6',
       level: 5,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAe9JREFUWAntVDFOw0AQNBINVNAgXgCipaWwPwA9nwAJHuBroOIJ0KaghT4p6OADVBEtBRINEgIpzFi30nLZuzj2JRISK43vvJ6d2VzsLYo8UUNmYsDlkU+r/ClzNpvtVOb95ZrfuwktNsGvEsSEQ36MB6nZEYr9m7vIoYUnFeNFyn+nQ7Fcx07dmbFIc/6QZCzaPNnAMsyjDezgXPhQY4z7o8h51QHXteRR34wzZMX8E/sLYN1kFkUf82gDQ9/AO9bdiDHTfc2dpb2B5BfA7m4sgs8txJzaxwDNiQqwokRSOFydRUKuBjRP9jF+IzPwRS9YV5rM9GXoORR004+bTI2rGOo1xm+KVnF984WXTWb6UvrnI6wVYEUncwqJODves5SRo3gVecZ0Z3MWXwE0f+JNhzhEDetDuLZaz774tG2B4q1hP/b1ugGnOMmtTL9vsLaSTPshh5U25t7ZVDurp98tKNs2zcxyWHFi6gacyUwkh4HAK+4PEnx+oiVwDXBi9jLX008LfUB4H9DBr4PHzTmhubJ3yM8devqJkKyPUOM7cQJwL3lZObZHwDnA96hTDFAlgtbKF1PnOaxYw8Y3gV6hp582Cff8RDknKoA12aKEUmjG+yxH26ZLmX40zXq0bcz5Kd0BPN574AHg/720+AHGRUFCBMvPGwAAAABJRU5ErkJggg=='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMTIgMjBsNC0yTDMwIDRsLTItMi0xNCAxNC0yIDR6bS0yLjk2IDcuMDk3Yy0uOTg4LTIuMDg1LTIuMDUtMy4xNS00LjEzNi00LjEzN0w4IDE0LjQzNSAxMiAxMiAyNCAwaC02TDYgMTIgMCAzMmwyMC02IDEyLTEyVjhMMjAgMjBsLTIuNDM0IDR6Ii8+PC9zdmc+'
     },
     'TODO': {
       color: '#2ECC71',
       level: 6,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAHpJREFUWAntVdEKACEIs7j//+W7eu1BaQoDb0EPYYnNbQ4ze9f21vCC2djMJsi+f4AEEWJXKekIqACEA6WqoLfgirG63BKBzejI2UpZf6JIVwHiAxFi5yfdMx0BFYBwoFQV9Ba4DFXwFwhoFiA+oFlQKg66EyIc6DULPqi2BjrQLISlAAAAAElFTkSuQmCC'
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMTIgMmgyMHY0SDEyVjJ6bTAgMTJoMjB2NEgxMnYtNHptMCAxMmgyMHY0SDEydi00ek0wIDRjMC0yLjIxIDEuNzktNCA0LTRzNCAxLjc5IDQgNC0xLjc5IDQtNCA0LTQtMS43OS00LTR6bTAgMTJjMC0yLjIxIDEuNzktNCA0LTRzNCAxLjc5IDQgNC0xLjc5IDQtNCA0LTQtMS43OS00LTR6bTAgMTJjMC0yLjIxIDEuNzktNCA0LTRzNCAxLjc5IDQgNC0xLjc5IDQtNCA0LTQtMS43OS00LTR6Ii8+PC9zdmc+'
     },
     'XXX': {
       color: '#1ABC9C',
       level: 6,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAMxJREFUWAljYBgFmCHwHyhES3wEaL4VzFpGGAOJBllOa/ANaAE3yBJ8DkCXo7bDwOYz0dqrhMwHOaAeiJHjHKYHJDYBxqEVDQoGQkELiwpC6kh14+CJgho8Tu/DI0cVKVjwIhsGC2p0OZg4slpK2IMnCuqB3gD5DoZhvgLxR3MBLDRoRoMKotFcQLPgJcbg0bpgUFTHo7mAmMRKMzWjuWA0F6C3ekCJDdQOAAF0OZg4RJZycnC0iFjweITaPka26gOMMxCJ8BDQcmeYAwAiO0hhDc768wAAAABJRU5ErkJggg=='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMzIgMTBMMTYgMiAwIDEwbDE2IDggMTYtOHpNMTYgNC42NTVMMjYuNjkgMTAgMTYgMTUuMzQ1IDUuMzEgMTAgMTYgNC42NTV6bTEyLjc5NSA5Ljc0M0wzMiAxNmwtMTYgOC0xNi04IDMuMjA1LTEuNjAyTDE2IDIwLjc5NnptMCA2TDMyIDIybC0xNiA4LTE2LTggMy4yMDUtMS42MDJMMTYgMjYuNzk2eiIvPjwvc3ZnPg=='
     },
     'TEXT': {
       color: '#34495E',
       level: 7,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAF1JREFUWAntlDEOACAIxND//1nlBTDYOFjmC5DSEGFJ4HcC4wBYLyHMl8OdnQRIB7J3WTpQIqIDpAOt3XWghYkMkQ74B8jL3etNOtDa0j/QwkSGSAf8A+Tl7H2PwAbJ0gYQVt5RuAAAAABJRU5ErkJggg=='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNMCA2aDMydjJIMHptMCA0aDIydjJIMHptMCA0aDMydjJIMHptMCA0aDIydjJIMHptMCA0aDMydjJIMHptMCA0aDIydjJIMHoiLz48L3N2Zz4='
     },
     'TRACE': {
       color: '#BDC3C7',
       level: 8,
-      icon: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAXVJREFUWAntVqFyQjEQhA4GicWjUa3A8xP11XwC/QN8fX+ivgZEPR5bWdOZ0l1KmCO5vLuQuL6buXnJ5XZvuZeXMBj01negvgNTUBzPfiiluysFKPn3IrYVY9ewhYAHUWknxq5hCwGyA8UCLJVrJIT3y+dzBBhi/gnn2g98ArcwSPGZh2gGKhan7wWtByvS06GX4BHQIOA1ovFyRLCyFm6EgFXCVMZ1gpeqfhcCFooAhtyc7sRzoRGeX/Aj/Bs+hufM5DYTFOY5YixO/1DW41C2RnYhZojmT5gHAS/RWm6a1Ko5iJoeQImy3E8QcbY9dICvwzKzhpkgKnDDceNRADciN2SXubm9ifzkWJzOT7HLvJwXDg9ghewgYHNBpgMPV4pCxALy2A0CeBxrZnFomKtYF8EemUHA7Ar1N+nCKun5kEbEK5dXLwXwKuaVLE3DyPXq8RIMLE5/q2W75SBqegDVCij+E1rbMeIP8PAKpi0Ie47/3YFfWO+zWrE8lLIAAAAASUVORK5CYII='
+      icon: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDMyIDMyIj48cGF0aCBkPSJNNCAxNmw4LThIOGwtOCA4IDggOGg0em0yMC04aC00bDggOC04IDhoNGw4LTh6bS03LTRsLTUgMjRoM2w1LTI0eiIvPjwvc3ZnPg=='
     }
   };
-  ensure_length = function(str, size) {
-    if (str.length < size) {
-      return str + new Array(size - str.length + 1).join(' ');
-    }
-    return str.substring(0, size);
-  };
-  longest_level = 6;
+  longest_level = 7;
   self = {
     levels: LEVELS,
     options: {
       level: 4,
       color: true,
-      lengths: {
-        file: 15,
-        func: 15,
-        line: 3
-      },
+      format: '{LVL} @{FILE}(15) [{FUNC}(15)]({LINE}(3))',
       filter: function(level, file, func, line, msg) {
         var i, item, objects, _i, _len;
         objects = [];
@@ -208,50 +178,21 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
           }
         }
         msg = msg.join(' ');
-        objects.unshift(ensure_length(level.name, longest_level) + ' @' + ensure_length(file, self.options.lengths.file) + ' [' + ensure_length(func, self.options.lengths.func) + '](' + ensure_length(line, self.options.lengths.line) + ') ' + msg);
+        objects.unshift(_format(self.options.format, {
+          LVL: _ensure_length(level.name, longest_level),
+          FILE: file,
+          FUNC: func,
+          LINE: line
+        }) + ' ' + msg);
         return objects;
       }
-    },
-    isLoaded: false,
-    loaded: function() {
-      self.isLoaded = true;
-      return console.system('trace logging enabled');
     }
   };
   config = module.config();
   core.object.merge(self, config);
-  expected_load_count = 0;
-  _ref = self.levels;
-  for (level in _ref) {
-    settings = _ref[level];
-    if (settings.icon && settings.color) {
-      expected_load_count++;
-      uriColor(settings.icon, settings.color, (function(settings) {
-        return function(icon) {
-          settings.coloricon = icon;
-          return loaded();
-        };
-      })(settings), (function(settings) {
-        return function() {
-          settings.coloricon = settings.icon;
-          return loaded();
-        };
-      })(settings));
-    }
-    if (level.length + 1 > longest_level) {
-      longest_level = level.length + 1;
-    }
-  }
-  load_count = 0;
-  loaded = function() {
-    load_count++;
-    if (load_count === expected_load_count) {
-      return build();
-    }
-  };
   internal_trace_log = Function.prototype.call.bind(console['log'], console);
   build = function() {
-    var color, icon, lower, name, prefix, trace_log, _ref1, _ref2;
+    var color, icon, level, lower, name, prefix, settings, trace_log, _ref, _ref1, _results;
     if (!config.noConflict) {
       trace_log = function(level, msg) {
         var bg, icon, info, output;
@@ -269,16 +210,16 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
           output.splice(1, 0, '');
           icon = level.icon;
         }
-        bg = 'background:url(' + icon + ');background-size:13px';
+        bg = 'background:url(\'' + icon + '\');background-size:13px';
         if (browser.firefox) {
           bg += ';padding-bottom:1px';
         }
         output.splice(1, 0, bg);
         return internal_trace_log.apply(console, output);
       };
-      _ref1 = self.levels;
-      for (level in _ref1) {
-        settings = _ref1[level];
+      _ref = self.levels;
+      for (level in _ref) {
+        settings = _ref[level];
         settings.name = level.toUpperCase();
         lower = level.toLowerCase();
         core.log[lower] = console[lower] = self[lower] = (function(settings) {
@@ -288,14 +229,15 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
         })(settings);
       }
       console['log'] = self.text;
-      core.log.log = self.text;
+      return core.log.log = self.text;
     } else {
-      _ref2 = self.levels;
-      for (level in _ref2) {
-        settings = _ref2[level];
+      _ref1 = self.levels;
+      _results = [];
+      for (level in _ref1) {
+        settings = _ref1[level];
         name = level.toLowerCase();
         if (settings.enabled || settings.level < self.options.level) {
-          prefix = '%c  %c ' + ensure_length(level.toUpperCase(), longest_level);
+          prefix = '%c  %c ' + _ensure_length(level.toUpperCase(), longest_level);
           if (self.options.color) {
             icon = settings.coloricon;
             color = 'color:' + settings.color;
@@ -303,23 +245,37 @@ define('trace',['module', 'scalejs!core', 'browser'], function(module, core) {
             icon = settings.icon;
             color = '';
           }
-          icon = 'background:url(' + icon + ');background-size:13px';
+          icon = 'background:url(\'' + icon + '\');background-size:13px';
           if (browser.firefox) {
             icon += ';padding-bottom:1px';
           }
           core.log[name] = console[name] = self[name] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
           if (name === 'text') {
-            core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color);
+            _results.push(core.log['log'] = console['log'] = self['log'] = Function.prototype.bind.call(internal_trace_log, console, prefix, icon, color));
+          } else {
+            _results.push(void 0);
           }
         } else {
-          core.log[name] = console[name] = self[name] = function() {
+          _results.push(core.log[name] = console[name] = self[name] = function() {
             return void 0;
-          };
+          });
         }
       }
+      return _results;
     }
-    return self.loaded();
   };
+  _ref = self.levels;
+  for (level in _ref) {
+    settings = _ref[level];
+    if (settings.icon && settings.color) {
+      settings.coloricon = uriColor(settings.icon, settings.color);
+    }
+    if (level.length + 1 > longest_level) {
+      longest_level = level.length + 1;
+    }
+  }
+  build();
+  console.system('trace logging enabled');
   return core.registerExtension({
     trace: self
   });
